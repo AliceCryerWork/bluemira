@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2021-present J. Morris, D. Short
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
-
+"""EUDEMO equilibria stability"""
 
 from copy import deepcopy
 
@@ -21,12 +21,13 @@ from bluemira.geometry.wire import BluemiraWire
 
 def run_vertical_stability_calculation(
     params: dict | ParameterFrame,
-    build_config: dict,
+    build_config: dict,  # noqa: ARG001
     eq: Equilibrium,
     vv_outer_wire: BluemiraWire,
     vv_inner_wire: BluemiraWire,
     keep_out_zones: list[BluemiraFace] | None = None,
 ):
+    """Vertical stability calculation"""
     bluemira_print("Running RZIp vertical stability calculation.")
     tk_shell = params.tk_vv_single_wall.value
     outer_shell_centreline = offset_wire(vv_outer_wire, -tk_shell)

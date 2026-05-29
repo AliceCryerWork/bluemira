@@ -25,7 +25,7 @@ import shutil
 from copy import copy
 from pathlib import Path
 
-import matplotlib.pyplot as plt  # ty:ignore[unresolved-import]
+import matplotlib.pyplot as plt
 import numpy as np
 from matproplib.conditions import OperationalConditions
 
@@ -33,7 +33,7 @@ from bluemira.base.components import Component
 from bluemira.base.designer import run_designer
 from bluemira.base.file import get_bluemira_path, make_bluemira_path
 from bluemira.base.logs import set_log_level
-from bluemira.base.look_and_feel import bluemira_print
+from bluemira.base.look_and_feel import bluemira_error, bluemira_print
 from bluemira.base.parameter_frame import ParameterFrame
 from bluemira.base.reactor import Reactor
 from bluemira.base.reactor_config import ReactorConfig
@@ -524,6 +524,7 @@ def build_radiation_plugs(
 
 
 def add_useful_parameters(reactor, reactor_config, reference_eq):
+    """Add useful parameters back to the global config"""
     reactor_config.global_params.tf_wp_volume.set_value(
         reactor.tf_coils.wp_volume, "BLUEMIRA"
     )
@@ -792,7 +793,9 @@ if __name__ == "__main__":
             make_polygon(lcfs_coords),
             vv_thermal_shield.xz_boundary,
         )
-        reactor_config.global_params.TF_peak_ripple_opt.set_value(peak_opt_ripple, "BLUEMIRA")
+        reactor_config.global_params.TF_peak_ripple_opt.set_value(
+            peak_opt_ripple, "BLUEMIRA"
+        )
 
         eq_port_designer = EquatorialPortKOZDesigner(
             reactor_config.params_for("Equatorial Port"),
@@ -957,4 +960,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         bluemira_error(e.with_traceback(e.__traceback__))
-        raise e
+        raise

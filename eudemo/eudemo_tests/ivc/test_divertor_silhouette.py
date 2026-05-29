@@ -15,6 +15,7 @@ from unittest import mock
 import numpy as np
 import pytest
 
+from bluemira.base.constants import EPS
 from bluemira.base.file import get_bluemira_path
 from bluemira.builders.divertor import LegPosition
 from bluemira.equilibria import Equilibrium

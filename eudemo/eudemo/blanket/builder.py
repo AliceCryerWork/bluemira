@@ -226,12 +226,12 @@ class BlanketBuilder(Builder):
         return fw, bz, manifold
 
     def get_segments(
-        self, silhouette: BluemiraFace, sub_name: str, inboard: bool, color_index: int
+        self, silhouette: BluemiraFace, sub_name: str, *, inboard: bool, color_index: int
     ):
         """
         Create the sub-layer-segments of the blanket from a silhouette of
         a sub-layer.
-        """
+        """  # noqa: DOC201
         if inboard:
             n_seg_per_sector = self.params.n_bb_inboard.value
             name = self.IBS
@@ -240,18 +240,13 @@ class BlanketBuilder(Builder):
             name = self.OBS
 
         shapes = pattern_revolved_silhouette(
-            silhouette,
-            n_seg_per_sector,
-            self.params.n_TF.value,
-            self.params.c_rm.value,
+            silhouette, n_seg_per_sector, self.params.n_TF.value, self.params.c_rm.value
         )
 
         segments = []
         for no, shape in enumerate(shapes):
             segment = PhysicalComponent(
-                f"{name}_{sub_name}_{no}",
-                shape,
-                material=self.get_material(name),
+                f"{name}_{sub_name}_{no}", shape, material=self.get_material(name)
             )
             apply_component_display_options(
                 segment, color=BLUE_PALETTE[self.BB][color_index]

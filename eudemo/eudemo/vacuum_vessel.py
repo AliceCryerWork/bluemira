@@ -70,12 +70,13 @@ class VacuumVessel(PortManagerMixin, ComponentManager):
 
         """
         return (
-            self.component()
+            self
+            .component()
             .get_component("xz")
             .get_component(VacuumVesselBuilder.BODY)
             .shape.boundary[1]
         )
-    
+
     def add_ports(self, ports: Component | list[Component], n_TF: int):
         """
         Add a series of ports to the vacuum vessel component tree.
