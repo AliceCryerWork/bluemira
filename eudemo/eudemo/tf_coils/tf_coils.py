@@ -40,6 +40,7 @@ from bluemira.geometry.parameterisations import (
 from bluemira.geometry.plane import BluemiraPlane
 from bluemira.geometry.solid import BluemiraSolid
 from bluemira.geometry.tools import (
+    SweepShapeTransition,
     boolean_cut,
     boolean_fuse,
     extrude_shape,
@@ -769,7 +770,11 @@ class TFCoilBuilder(Builder):
         :
             Winding pack x-y-z
         """
-        wp_solid = sweep_shape(self.wp_cross_section, self.centreline)
+        wp_solid = sweep_shape(
+            self.wp_cross_section,
+            self.centreline,
+            transition=SweepShapeTransition.ROUND_CORNER,
+        )
 
         winding_pack = PhysicalComponent(
             self.WP, wp_solid, material=self.get_material(self.WP)
@@ -789,7 +794,12 @@ class TFCoilBuilder(Builder):
             Insulation x-y-z
         """
         ins_solid = boolean_cut(
-            sweep_shape(ins_inner_face.boundary[0], self.centreline), wp_solid
+            sweep_shape(
+                ins_inner_face.boundary[0],
+                self.centreline,
+                transition=SweepShapeTransition.ROUND_CORNER,
+            ),
+            wp_solid,
         )[0]
         insulation = PhysicalComponent(
             self.INS, ins_solid, material=self.get_material(self.INS)
@@ -1001,7 +1011,9 @@ class TFCoilBuilder(Builder):
         inner_xs_rect_bot = deepcopy(inner_xs_rect)
         inner_xs_rect_bot.translate((0, 0, z_turn_bot))
         return sweep_shape(
-            [inner_xs_rect_top, outer_xs, inner_xs_rect_bot], self.centreline
+            [inner_xs_rect_top, outer_xs, inner_xs_rect_bot],
+            self.centreline,
+            transition=SweepShapeTransition.ROUND_CORNER,
         )
 
     @staticmethod
