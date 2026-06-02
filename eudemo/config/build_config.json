@@ -4,13 +4,13 @@
     "materials": "$path_expand:./materials_data/materials.json",
     "mixtures": "$path_expand:./materials_data/mixtures.json"
   },
-  "Radial build": {
+  "radial_build": {
     "run_mode": "read",
     "read_dir": "$path_expand:./process",
     "run_dir": "$path_expand:./process",
     "plot": false
   },
-  "Fixed boundary equilibrium": {
+  "fixed_boundary_equilibrium": {
     "run_mode": "read",
     "file_path": "$path_expand:./fixed_boundary_eqdsk.json",
     "param_class": "JohnerLCFS",
@@ -50,7 +50,7 @@
       "ny_fs_min": 40
     }
   },
-  "Dummy fixed boundary equilibrium": {
+  "dummy_fixed_boundary_equilibrium": {
     "run_mode": "read",
     "param_class": "bluemira.equilibria.shapes::KuiroukidisLCFS",
     "shape_config": {
@@ -63,7 +63,7 @@
       "li_min_iter": 2
     }
   },
-  "Free boundary equilibrium": {
+  "free_boundary_equilibrium": {
     "run_mode": "read",
     "diagnostic_plotting": {},
     "summary_plot": false,
@@ -87,7 +87,7 @@
     "cocos": 3
   },
   "IVC": {
-    "Wall silhouette": {
+    "wall_silhouette": {
       "run_mode": "read",
       "param_class": "eudemo.ivc.wall_silhouette_parameterisation::WallPolySpline",
       "variables_map": {
@@ -101,9 +101,9 @@
         "conditions": { "max_eval": 200, "ftol_rel": 1e-6 }
       }
     },
-    "Divertor silhouette": {}
+    "divertor_silhouette": {}
   },
-  "Blanket": {
+  "blanket": {
     "run_mode": "run",
     "material": {
       "FW": "BB_FW_MATERIAL",
@@ -111,13 +111,13 @@
       "MANIFOLD": "BB_MANI_MATERIAL"
     }
   },
-  "Vacuum vessel": {
+  "vacuum_vessel": {
     "material": "VV_MATERIAL"
   },
-  "Divertor": {
+  "divertor": {
     "material": "Homogenised_Divertor_2015"
   },
-  "Neutronics": {
+  "neutronics": {
     "cross_section_xml": "$path_expand:./cross_section_data/cross_sections.xml",
     "photon_transport": true,
     "electron_treatment": "ttb",
@@ -162,7 +162,7 @@
       }
     }
   },
-  "TF coils": {
+  "tf_coils": {
     "run_mode": "read",
     "file_path": "$path_expand:./TFCoilDesign.json",
     "plot": false,
@@ -192,7 +192,7 @@
       "conditions": { "max_eval": 200, "ftol_rel": 1e-6 }
     }
   },
-  "PF coils": {
+  "pf_coils": {
     "run_mode": "read",
     "file_path": "$path_expand:./PFCoilDesign.json",
     "material": {
@@ -239,13 +239,13 @@
       }
     }
   },
-  "Upper Port": {
+  "upper_port": {
     "material": {
       "TS": "SS316_LN_MAT",
       "VV": "SS316_LN_MAT"
     }
   },
-  "Equatorial Port": {
+  "equatorial_port": {
     "params": {
       "ep_width": {
         "value": 2.0,
@@ -271,7 +271,7 @@
       "VV": "SS316_LN_MAT"
     }
   },
-  "Lower Port": {
+  "lower_port": {
     "params": {
       "lp_duct_div_pad_ob": {
         "value": 0.3,
@@ -303,7 +303,7 @@
       "VV": "SS316_LN_MAT"
     }
   },
-  "Cryostat": {
+  "cryostat": {
     "params": {
       "g_plug": {
         "value": 0.025,
@@ -329,13 +329,13 @@
       "Port Plug": "SS316_LN_MAT"
     }
   },
-  "Thermal shield": {
+  "thermal_shield": {
     "material": {
       "VVTS": "SS316_LN_MAT",
       "Cryostat TS": "SS316_LN_MAT"
     }
   },
-  "RadiationShield": {
+  "radiation_shield": {
     "params": {
       "g_plug": {
         "value": 0.025,
@@ -361,7 +361,7 @@
       "Port Plug": "HeavyConcrete"
     }
   },
-  "Coil structures": {
+  "coil_structures": {
     "material": {
       "PF ICS": "SS316_LN_MAT",
       "TF OIS": "SS316_LN_MAT",

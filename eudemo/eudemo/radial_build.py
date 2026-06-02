@@ -113,9 +113,10 @@ template_builder.add_variable(
 )
 template_builder.add_variable("f_j_cs_start_pulse_end_flat_top", 0.93176)
 template_builder.add_variable("f_c_plasma_non_inductive", 0.39566)
-template_builder.add_variable("fncycle", 1.0)
+# template_builder.add_variable("fncycle", 1.0)
 # template_builder.add_variable("feffcd", 1.0, lower_bound=0.001, upper_bound=1.0)
 
+"""
 # Modified f-values and bounds w.r.t. defaults
 template_builder.adjust_variable("fne0", 0.6, upper_bound=0.95)
 template_builder.adjust_variable("fdene", 1.2, upper_bound=1.2)
@@ -141,43 +142,7 @@ template_builder.adjust_variable("fvdump", 1.0)
 template_builder.adjust_variable("fstrcond", 0.92007)
 template_builder.adjust_variable("fiooic", 0.63437, upper_bound=1.0)
 template_builder.adjust_variable("fjprot", 1.0)
-
-# Set model switches
-for model_choice in (
-    BootstrapCurrentScalingLaw.SAUTER,
-    ConfinementTimeScalingLaw.IPB98_Y2_H_MODE,
-    PlasmaCurrentScalingLaw.ITER_REVISED,
-    PlasmaProfileModel.WESSON,
-    BetaNormMaxModel.WESSON,
-    AlphaJModel.WESSON,
-    PlasmaPedestalModel.PEDESTAL_GW,
-    PlasmaNullConfigurationModel.SINGLE_NULL,
-    BetaLimitModel.THERMAL,
-    DensityLimitModel.GREENWALD,
-    AlphaPressureModel.WARD,
-    PlasmaGeometryModel.CREATE_A_M_S,
-    PowerFlowModel.SIMPLE,
-    ShieldThermalHeatUse.LOW_GRADE_HEAT,
-    SecondaryCycleModel.INPUT,
-    CurrentDriveEfficiencyModel.ECRH_UI_GAM,
-    OperationModel.PULSED,
-    PFSuperconductorModel.NBTI,
-    SolenoidSwitchModel.SOLENOID,
-    CSSuperconductorModel.NB3SN_WST,
-    TFSuperconductorModel.NB3SN_WST,
-    TFWindingPackGeometryModel.RECTANGULAR,
-    PrimaryPumpingModel.PRESSURE_DROP_INPUT,
-    TFNuclearHeatingModel.INPUT,
-    CostModel.TETRA_1990,
-    AvailabilityModel.INPUT,
-    OutputCostsSwitch.NO,
-):
-    template_builder.set_model(model_choice)
-
-template_builder.add_impurity(Impurities.H, 1.0)
-template_builder.add_impurity(Impurities.He, 0.1)
-template_builder.add_impurity(Impurities.W, 5.0e-5)
-
+"""
 # Set fixed input values
 template_builder.add_input_values({
     # CS fatigue variables
@@ -314,6 +279,42 @@ template_builder.add_input_values({
     "zref": [3.6, 1.2, 1.0, 2.8, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     "fp_hcd_injected_max": 1.0,
 })
+
+# Set model switches
+for model_choice in (
+    BootstrapCurrentScalingLaw.SAUTER,
+    ConfinementTimeScalingLaw.IPB98_Y2_H_MODE,
+    PlasmaCurrentScalingLaw.ITER_REVISED,
+    PlasmaProfileModel.WESSON,
+    BetaNormMaxModel.WESSON,
+    AlphaJModel.WESSON,
+    PlasmaPedestalModel.PEDESTAL_GW,
+    PlasmaNullConfigurationModel.SINGLE_NULL,
+    BetaLimitModel.THERMAL,
+    DensityLimitModel.GREENWALD,
+    AlphaPressureModel.WARD,
+    PlasmaGeometryModel.CREATE_A_M_S,
+    PowerFlowModel.SIMPLE,
+    ShieldThermalHeatUse.LOW_GRADE_HEAT,
+    SecondaryCycleModel.INPUT,
+    CurrentDriveEfficiencyModel.ECRH_UI_GAM,
+    OperationModel.PULSED,
+    PFSuperconductorModel.NBTI,
+    SolenoidSwitchModel.SOLENOID,
+    CSSuperconductorModel.NB3SN_WST,
+    TFSuperconductorModel.NB3SN_WST,
+    TFWindingPackGeometryModel.RECTANGULAR,
+    PrimaryPumpingModel.PRESSURE_DROP_INPUT,
+    TFNuclearHeatingModel.INPUT,
+    CostModel.TETRA_1990,
+    AvailabilityModel.INPUT,
+    OutputCostsSwitch.NO,
+):
+    template_builder.set_model(model_choice)
+
+template_builder.add_impurity(Impurities.H, 1.0)
+template_builder.add_impurity(Impurities.He, 0.1)
+template_builder.add_impurity(Impurities.W, 5.0e-5)
 
 
 def apply_specific_B_to_P_interface_rules(params: ParameterFrame):
