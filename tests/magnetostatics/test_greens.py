@@ -4,9 +4,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+
 import numba as nb
 import numpy as np
 import pytest
+from scipy.special import ellipe as scipy_ellipe
+from scipy.special import ellipk as scipy_ellipk
 
 from bluemira.base.constants import EPS, MU_0_2PI, MU_0_4PI
 from bluemira.magnetostatics.greens import (
@@ -127,6 +130,69 @@ def test_greens_vs_greens_all():
     np.testing.assert_allclose(Bx, Bx2)
     np.testing.assert_allclose(Bz, Bz2)
     np.testing.assert_allclose(psi, psi2)
+
+
+class TestEllipticalFunctionsRegression:
+    rng = np.random.default_rng(846023420)
+    fixtures = [  # noqa: RUF012
+        # nans
+        np.nan,
+        [np.nan, np.nan],
+        # in valid range [0, 1)
+        0.314,
+        np.linspace(0.0, np.nextafter(1.0, 0.0, dtype=np.float64), 201),
+        np.full((4, 3, 2), 0.42),
+        # bottom of valid range
+        0.0,
+        np.zeros((3,)),
+        np.zeros((1, 2)),
+        # top of valid range
+        1.0,
+        np.ones((3,)),
+        np.ones((1, 2)),
+        # positive and out of valid range
+        1.5,
+        np.full((3,), 1.5),
+        np.full((2, 3), 2.0),
+        # in valid negative range
+        np.linspace(-0.0, np.nextafter(-1, 0, dtype=np.float64), 201),
+        np.full((4, 3, 2), -0.42),
+        # large negative
+        -100.0,
+        np.full((3,), -10.0),
+        # approaching range bounds
+        np.array([1e-9, 1e-22]),
+        np.array([1.0 - 1e-9, 1 - 1e-16]),
+        np.array([-1e-9, -1e-22]),
+        np.array([-1.0 + 1e-9, -1 + 1e-16]),
+        # non-C-contiguous
+        np.asfortranarray(np.full((4, 3), 0.5)),
+        # Near limits
+        np.linspace(-EPS, EPS, 201),
+        np.linspace(1.0 - EPS, 1.0 + EPS, 201),
+        np.linspace(2.0 - EPS, 2.0 + EPS, 201),
+        # Odd balls
+        np.inf,
+        -np.inf,
+        [np.pi / 6, np.pi / 4, np.pi / 3, np.pi / 2, np.pi],
+    ]
+    for _ in range(5):  # Tested with 80000, no failures
+        fixtures.extend([
+            rng.uniform(-2, 2, 10),
+        ])
+
+    @pytest.mark.parametrize("m", fixtures)
+    def test_ellipe_nb(self, m):
+        self.runner(ellipe_nb, scipy_ellipe, m)
+
+    @pytest.mark.parametrize("m", fixtures)
+    def test_ellipk_nb(self, m):
+        self.runner(ellipk_nb, scipy_ellipk, m)
+
+    def runner(self, new_ellip_func, old_ellip_func, m):
+        new = new_ellip_func(m)
+        old = old_ellip_func(m)
+        np.testing.assert_allclose(new, old, rtol=0.0, atol=EPS)
 
 
 class TestGreenFieldsRegression:

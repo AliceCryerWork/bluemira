@@ -683,7 +683,8 @@ def force_wire_to_spline(
 
     new_points = wire.discretise(ndiscr=2 * original_n_edges, byedges=False)
 
-    delta = np.linalg.norm(original_points.xyz - new_points.xyz, ord=2)
+    n = min(len(original_points.xyz), len(new_points.xyz))
+    delta = np.linalg.norm(original_points.xyz[:, :n] - new_points.xyz[:, :n], ord=2)
     if delta > l2_tolerance:
         bluemira_warn(
             f"Forcing wire to spline with {n_discr} interpolation points did not achieve"
@@ -1038,13 +1039,12 @@ def polygon_revolve_signed_volume(polygon: npt.ArrayLike) -> float:
     ZeroDivisionError, thus it is recast into the following (also the simplest) form:
     :math:`V = \\frac{\\pi}{3} (p_z - c_z) (p_x^2 + p_x c_x + c_x^2)`.
 
-    Adding together the signed volume of all edges, the excess negative volume from one
-    side would cancel out the excess positive volume from the other, such that
-    abs(signed volume)= the volume of the polygon after being revolved around the z-axis.
-    """
-    # TODO @OceanWong: insert graphics for notes in docstring
-    # 4265
+    To calculate the volume of the polygon in blue the contributions from the positive
+    volumes are summed alongside the negative volumes in green and red hatches
+    respectively.
 
+    .. figure:: /geometry/images/polygon_revolve_signed_volume.png
+    """
     polygon = np.asarray(polygon)
     if np.ndim(polygon) != 2 or np.shape(polygon)[0] != 2:  # noqa: PLR2004
         raise ValueError("This function takes in an np.ndarray of shape (2, N).")
@@ -1202,6 +1202,14 @@ class SweepShapeTransition(enum.IntEnum):
     DEFAULT = 0
     RIGHT_CORNER = 1
     ROUND_CORNER = 2
+
+    @classmethod
+    def _missing_(cls, value):
+        try:
+            if isinstance(value, str):
+                return cls[value.upper()]
+        except ValueError:
+            return super()._missing_(value)
 
 
 def sweep_shape(

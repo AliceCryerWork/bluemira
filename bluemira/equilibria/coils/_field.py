@@ -75,12 +75,6 @@ class CoilGroupFieldsMixin:
         z:
             The z values at which to calculate the dB_d response
 
-        # TODO @je-cook: Check if these are things you want to implement for the function
-        # sum_coils:
-        #     sum over coils
-        # control:
-        #     operations on control coils only
-
         Returns
         -------
         :
@@ -98,12 +92,6 @@ class CoilGroupFieldsMixin:
             The x values at which to calculate the dB_d response
         z:
             The z values at which to calculate the dB_d response
-
-        # TODO @je-cook: Check if these are things you want to implement for the function
-        # sum_coils:
-        #     sum over coils
-        # control:
-        #     operations on control coils only
 
         Returns
         -------
@@ -477,7 +465,7 @@ class CoilGroupFieldsMixin:
         ind = np.nonzero(_quad_weight)
         out = np.zeros((*x.shape, *_quad_x.shape))
 
-        out[(*(slice(None) for _ in x.shape), *ind)] = greens(
+        out[*(slice(None) for _ in x.shape), *ind] = greens(
             _quad_x[ind][np.newaxis],
             _quad_z[ind][np.newaxis],
             x[..., np.newaxis],

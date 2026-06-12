@@ -13,14 +13,11 @@ from __future__ import annotations
 import copy
 import types
 
-from matproplib.library.fluids import Void
 from matproplib.material import Material
 
 from bluemira.base.look_and_feel import bluemira_warn
 from bluemira.materials.error import MaterialsError
 from bluemira.utilities.tools import get_module
-
-vacuum_void = Void(name="Vacuum")
 
 
 class MaterialCache:
@@ -75,7 +72,7 @@ class MaterialCache:
         for p in package:
             try:
                 self._material_packages.append(get_module(p))
-            except ImportError:  # noqa: PERF203
+            except ImportError:
                 bluemira_warn(f"Can't import {p}, skipping")
 
     def _get_material(self, name):

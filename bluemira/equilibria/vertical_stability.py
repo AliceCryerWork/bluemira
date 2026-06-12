@@ -98,7 +98,7 @@ class RZIp:
             cs.n_turns = 1
 
         reduced_coilset = cs.get_uncontrolled_coils()
-        self.ind_mat = make_mutual_inductance_matrix(reduced_coilset, square_coil=True)
+        self.ind_mat = make_mutual_inductance_matrix(reduced_coilset, square_coil=False)
 
     def __call__(
         self,
@@ -130,7 +130,7 @@ class RZIp:
             r_struct=np.tile(eq.x.reshape(-1), (len(self.coilset._get_type_index()), 1)),
             i_plasma=eq._jtor * eq.grid.step,
             br_struct_grid=np.rollaxis(eq._bx_green, 2, 0),
-            dbrdz_struct_grid=np.rollaxis(eq._db_green, 2, 0),
+            dbrdz_struct_grid=np.rollaxis(eq.coilset.dB_d_response(eq.x, eq.z), 2, 0),
         )
 
 
@@ -190,15 +190,10 @@ def stab_destab(
         optimize=["einsum_path", (0, 1), (0, 1)],
     )
 
-    stabilising = np.einsum(
-        "d, db, bc, ac, a",
-        i_plasma,
-        msp_prime,
-        np.linalg.inv(mss),
-        msp_prime,
-        i_plasma,
-        optimize=["einsum_path", (0, 1), (1, 2), (0, 1), (0, 1)],
-    )
+    # Memory-efficient alternative to einsum for larger matrices (slightly slower?)
+    v = msp_prime.T @ i_plasma
+    stabilising = v @ np.linalg.solve(mss, v)
+
     # stabilising force/ destabilising force differentiated wrt to z coord
     # f = -d_fs / d_fd
     # not infinite if destabilising is 0 because therefore it is stable

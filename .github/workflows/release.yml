@@ -29,12 +29,12 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           token: ${{ secrets.FPPF_BOT_AUTH_KEY }}
 
       - name: Permissions Check
-        uses: Fusion-Power-Plant-Framework/fppf-actions/permission_check@deddef408d0061e542692a7bf97368449c5ee5b3
+        uses: Fusion-Power-Plant-Framework/fppf-actions/permission_check@12635db91f7ece11c142b9794b444b5ab2b2df0d
         with:
           token: ${{ secrets.FPPF_BOT_AUTH_KEY }}
 

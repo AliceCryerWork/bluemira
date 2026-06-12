@@ -61,7 +61,6 @@ class ProcessInputs:
     den_steel: float | None = None
     f_p_blkt_multiplication: float | None = None
     fblss: float | None = None
-    f_ster_div_single: float | None = None
     i_fw_blkt_vv_shape: int | None = None
     fw_armour_thickness: float | None = None
     i_blanket_type: int | None = None
@@ -223,7 +222,7 @@ class ProcessInputs:
     dx_tf_side_case_min: float | None = None
     tmargmin: float | None = None
     tmargmin_cs: float | None = None
-    oacdcp: float | None = None
+    j_tf_coil_full_area: float | None = None
     dx_tf_turn_general: int | None = None
     len_tf_bus: float | None = None
     rrr_tf_cu: float | None = None
@@ -323,12 +322,12 @@ class ProcessInputs:
     fracture_toughness: float | None = None
 
     # REBCO
-    dx_hts_tape_rebco: float | None = None
-    dx_hts_tape_copper: float | None = None
-    dx_hts_tape_hastelloy: float | None = None
-    dr_hts_tape: float | None = None
-    dx_hts_tape_total: float | None = None
-    dx_croco_strand_copper: float | None = None
+    dx_tf_hts_tape_rebco: float | None = None
+    dx_tf_hts_tape_copper: float | None = None
+    dx_tf_hts_tape_hastelloy: float | None = None
+    dr_tf_hts_tape: float | None = None
+    dx_tf_hts_tape_total: float | None = None
+    dx_tf_croco_strand_copper: float | None = None
     copper_rrr: float | None = None
     copper_m2_max: float | None = None
     f_coppera_m2: float | None = None
@@ -353,10 +352,10 @@ class ProcessInputs:
     fbetatry_lower: float | None = None
     fcwr: float | None = None
     fdene: float | None = None
+    f_h_mode_margin: float | None = None
     fiooic: float | None = None
     fjohc: float | None = None
     fjohc0: float | None = None
-    fl_h_threshold: float | None = None
     fradpwr: float | None = None
     eta_cd_norm_hcd_primary_max: float | None = None
     pflux_fw_rad_max: float | None = None
@@ -577,7 +576,6 @@ class ProcessInputs:
     f_nd_plasma_separatrix_greenwald: float | None = None
     fkzohm: float | None = None
     fp_plasma_separatrix_min_mw: float | None = None
-    fne0: float | None = None
     f_plasma_fuel_tritium: float | None = None
     f_plasma_fuel_helium3: float | None = None
     f_c_plasma_non_inductive: float | None = None
@@ -586,6 +584,8 @@ class ProcessInputs:
     t_plasma_energy_confinement_max: float | None = None
     i_bootstrap_current: int | None = None
     i_beta_component: int | None = None  # listed as an output...
+    i_plasma_shape: int | None = None
+    i_plasma_ignited: int | None = None
     i_plasma_current: int | None = None
     i_density_limit: int | None = None
     i_diamagnetic_current: int | None = None
