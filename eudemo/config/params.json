@@ -951,18 +951,6 @@
     "source": "Input - F. Maviglia value",
     "long_name": "Divertor outboard target ccw angle"
   },
-  "div_open": {
-    "value": false,
-    "unit": "dimensionless",
-    "source": "Input",
-    "long_name": "Divertor open/closed configuration"
-  },
-  "div_type": {
-    "value": "SN",
-    "unit": "dimensionless",
-    "source": "Input",
-    "long_name": "Divertor single (SN) or double (DN) null"
-  },
   "c_rm": {
     "value": 0.02,
     "unit": "meter",
