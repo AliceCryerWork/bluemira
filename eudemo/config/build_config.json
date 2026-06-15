@@ -5,13 +5,13 @@
     "mixtures": "$path_expand:./materials_data/mixtures.json"
   },
   "radial_build": {
-    "run_mode": "read",
-    "read_dir": "$path_expand:./process",
-    "run_dir": "$path_expand:./process",
+    "run_mode": "run",
+    "read_dir": "$path_expand:./",
+    "run_dir": "$path_expand:./",
     "plot": false
   },
   "fixed_boundary_equilibrium": {
-    "run_mode": "read",
+    "run_mode": "run",
     "file_path": "$path_expand:./fixed_boundary_eqdsk.json",
     "param_class": "JohnerLCFS",
     "shape_config": {
@@ -88,7 +88,7 @@
   },
   "IVC": {
     "wall_silhouette": {
-      "run_mode": "read",
+      "run_mode": "run",
       "param_class": "eudemo.ivc.wall_silhouette_parameterisation::WallPolySpline",
       "variables_map": {
         "x1": { "value": "r_fw_ib_in" },
@@ -116,7 +116,7 @@
   },
   "vertical_stability": {},
   "divertor": {
-    "material": "Homogenised_Divertor_2015"
+    "material": "SS316_LN_MAT"
   },
   "neutronics": {
     "enabled": false,
@@ -167,7 +167,7 @@
     }
   },
   "tf_coils": {
-    "run_mode": "read",
+    "run_mode": "run",
     "file_path": "$path_expand:./TFCoilDesign.json",
     "plot": true,
     "material": {
@@ -197,7 +197,7 @@
     }
   },
   "pf_coils": {
-    "run_mode": "read",
+    "run_mode": "run",
     "file_path": "$path_expand:./PFCoilDesign.json",
     "material": {
       "Ground Insulation": "SS316_LN_MAT",
@@ -366,6 +366,7 @@
     }
   },
   "coil_structures": {
+    "sweep_transition": "round_corner",
     "material": {
       "PF ICS": "SS316_LN_MAT",
       "TF OIS": "SS316_LN_MAT",

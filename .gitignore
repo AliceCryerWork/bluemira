@@ -11,6 +11,10 @@ __pycache__/
 **.pkl
 **.vtu
 
+**.DAT
+**.pdf
+**.eqdsk
+
 # C extensions
 *.so
 
