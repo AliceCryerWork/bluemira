@@ -22,6 +22,7 @@ The EUDEMO reactor design routine.
 
 import json
 import shutil
+import time
 from copy import copy
 from pathlib import Path
 
@@ -123,548 +124,577 @@ class EUDEMO(Reactor):
     equilibria: EquilibriumManager
     neutronics: NeutronicsManager
 
+    @staticmethod
+    def build_reference_equilibrium(
+        params: dict | ParameterFrame,
+        build_config: dict,
+        equilibrium_manager: EquilibriumManager,
+        lcfs_coords: Coordinates | None,
+        profiles: Profile | None,
+    ) -> Equilibrium:
+        """
+        Build the reference equilibrium for the tokamak and store in
+        the equilibrium manager
 
-def build_reference_equilibrium(
-    params: dict | ParameterFrame,
-    build_config: dict,
-    equilibrium_manager: EquilibriumManager,
-    lcfs_coords: Coordinates | None,
-    profiles: Profile | None,
-) -> Equilibrium:
-    """
-    Build the reference equilibrium for the tokamak and store in
-    the equilibrium manager
+        Returns
+        -------
+        :
+            The reference equilibrium
+        """
+        designer = ReferenceFreeBoundaryEquilibriumDesigner(
+            params, build_config, lcfs_coords, profiles
+        )
+        reference_eq = designer.execute()
+        constraints = None
+        result = None
+        iterator = None
+        if designer.opt_problem is not None:
+            constraints = designer.opt_problem.targets
+            result = designer._result
+            iterator = designer._iterator
+        ref_snapshot = Snapshot(
+            reference_eq,
+            reference_eq.coilset,
+            constraints,
+            reference_eq.profiles,
+            result,
+            iterator,
+            reference_eq.limiter,
+        )
+        equilibrium_manager.add_state(equilibrium_manager.REFERENCE, ref_snapshot)
+        return reference_eq
 
-    Returns
-    -------
-    :
-        The reference equilibrium
-    """
-    designer = ReferenceFreeBoundaryEquilibriumDesigner(
-        params, build_config, lcfs_coords, profiles
-    )
-    reference_eq = designer.execute()
-    constraints = None
-    result = None
-    iterator = None
-    if designer.opt_problem is not None:
-        constraints = designer.opt_problem.targets
-        result = designer._result
-        iterator = designer._iterator
-    ref_snapshot = Snapshot(
-        reference_eq,
-        reference_eq.coilset,
-        constraints,
-        reference_eq.profiles,
-        result,
-        iterator,
-        reference_eq.limiter,
-    )
-    equilibrium_manager.add_state(equilibrium_manager.REFERENCE, ref_snapshot)
-    return reference_eq
+    @staticmethod
+    def build_plasma(params, build_config: dict, eq: Equilibrium) -> Plasma:
+        """Build EUDEMO plasma from an equilibrium.
 
+        Returns
+        -------
+        :
+            Plasma component manager
+        """
+        lcfs_loop = eq.get_LCFS()
+        lcfs_wire = interpolate_bspline(
+            {"x": lcfs_loop.x, "z": lcfs_loop.z}, closed=True
+        )
+        builder = PlasmaBuilder(params, build_config, lcfs_wire)
+        return Plasma(builder.build())
 
-def build_plasma(params, build_config: dict, eq: Equilibrium) -> Plasma:
-    """Build EUDEMO plasma from an equilibrium.
+    @staticmethod
+    def build_vacuum_vessel(params, build_config, ivc_koz) -> VacuumVessel:
+        """Build the vacuum vessel around the given IVC keep-out zone.
 
-    Returns
-    -------
-    :
-        Plasma component manager
-    """
-    lcfs_loop = eq.get_LCFS()
-    lcfs_wire = interpolate_bspline({"x": lcfs_loop.x, "z": lcfs_loop.z}, closed=True)
-    builder = PlasmaBuilder(params, build_config, lcfs_wire)
-    return Plasma(builder.build())
+        Returns
+        -------
+        :
+            Vacuum vessel component manager
+        """
+        vv_builder = VacuumVesselBuilder(params, build_config, ivc_koz)
+        return VacuumVessel(vv_builder.build())
 
+    @staticmethod
+    def build_vacuum_vessel_thermal_shield(
+        params, build_config, vv_koz
+    ) -> VacuumVesselThermalShield:
+        """Build the vacuum vessel thermal shield around the given  VV keep-out zone
 
-def build_vacuum_vessel(params, build_config, ivc_koz) -> VacuumVessel:
-    """Build the vacuum vessel around the given IVC keep-out zone.
+        Returns
+        -------
+        :
+            Vacuum Vessel thermal shield component manager
+        """
+        vvts_builder = VVTSBuilder(params, build_config, vv_koz)
+        return VacuumVesselThermalShield(vvts_builder.build())
 
-    Returns
-    -------
-    :
-        Vacuum vessel component manager
-    """
-    vv_builder = VacuumVesselBuilder(params, build_config, ivc_koz)
-    return VacuumVessel(vv_builder.build())
+    @staticmethod
+    def build_cryots(params, build_config, pf_kozs, tf_koz) -> CryostatThermalShield:
+        """
+        Build the Cryostat thermal shield for the reactor.
 
+        Returns
+        -------
+        :
+            Cryostat thermal shield component manager
+        """
+        cts_builder = CryostatTSBuilder(params, build_config, pf_kozs, tf_koz)
+        return CryostatThermalShield(cts_builder.build())
 
-def build_vacuum_vessel_thermal_shield(
-    params, build_config, vv_koz
-) -> VacuumVesselThermalShield:
-    """Build the vacuum vessel thermal shield around the given  VV keep-out zone
+    @staticmethod
+    def assemble_thermal_shield(vv_thermal_shield, cryostat_thermal_shield):
+        """
+        Assemble the thermal shield component for the reactor.
 
-    Returns
-    -------
-    :
-        Vacuum Vessel thermal shield component manager
-    """
-    vvts_builder = VVTSBuilder(params, build_config, vv_koz)
-    return VacuumVesselThermalShield(vvts_builder.build())
+        Returns
+        -------
+        :
+            Thermal shield component manager
+        """
+        component = Component(
+            name="Thermal Shield",
+            children=[
+                vv_thermal_shield.component(),
+                cryostat_thermal_shield.component(),
+            ],
+        )
+        return ThermalShield(component)
 
+    @staticmethod
+    def build_divertor(params, build_config, div_silhouette) -> Divertor:
+        """Build the divertor given a silhouette of a sector.
 
-def build_cryots(params, build_config, pf_kozs, tf_koz) -> CryostatThermalShield:
-    """
-    Build the Cryostat thermal shield for the reactor.
+        Returns
+        -------
+        :
+            Divertor component manager
+        """
+        builder = DivertorBuilder(params, build_config, div_silhouette)
+        return Divertor(builder.build())
 
-    Returns
-    -------
-    :
-        Cryostat thermal shield component manager
-    """
-    cts_builder = CryostatTSBuilder(params, build_config, pf_kozs, tf_koz)
-    return CryostatThermalShield(cts_builder.build())
-
-
-def assemble_thermal_shield(vv_thermal_shield, cryostat_thermal_shield):
-    """
-    Assemble the thermal shield component for the reactor.
-
-    Returns
-    -------
-    :
-        Thermal shield component manager
-    """
-    component = Component(
-        name="Thermal Shield",
-        children=[vv_thermal_shield.component(), cryostat_thermal_shield.component()],
-    )
-    return ThermalShield(component)
-
-
-def build_divertor(params, build_config, div_silhouette) -> Divertor:
-    """Build the divertor given a silhouette of a sector.
-
-    Returns
-    -------
-    :
-        Divertor component manager
-    """
-    builder = DivertorBuilder(params, build_config, div_silhouette)
-    return Divertor(builder.build())
-
-
-def build_blanket(
-    params,
-    build_config: dict,
-    blanket_boundary,
-    blanket_face,
-    r_inner_cut: float,
-    cut_angle: float,
-) -> Blanket:
-    """Build the blanket given a silhouette of a sector.
-
-    Returns
-    -------
-    :
-        Blanket component manager
-    """
-    designer = BlanketDesigner(
-        params, blanket_boundary, blanket_face, r_inner_cut, cut_angle
-    )
-    ib_silhouette, ob_silhouette, panel_points = designer.execute()
-    builder = BlanketBuilder(
-        params, build_config, ib_silhouette, ob_silhouette, panel_points
-    )
-    return Blanket(builder.build(), panel_points, r_inner_cut)
-
-
-def build_tf_coils(params, build_config, separatrix, vvts_cross_section) -> TFCoil:
-    """Design and build the TF coils for the reactor.
-
-    Returns
-    -------
-    :
-        TF coil component manager
-    """
-    centreline, wp_cross_section, peak_ripple = run_designer(
-        TFCoilDesigner,
+    @staticmethod
+    def build_blanket(
         params,
-        build_config,
-        separatrix=separatrix,
-        keep_out_zone=vvts_cross_section,
-    )
+        build_config: dict,
+        blanket_boundary,
+        blanket_face,
+        r_inner_cut: float,
+        cut_angle: float,
+    ) -> Blanket:
+        """Build the blanket given a silhouette of a sector.
 
-    builder = TFCoilBuilder(
-        params, build_config, centreline.create_shape(), wp_cross_section
-    )
-    return TFCoil(builder.build(), builder._make_field_solver(), centreline), peak_ripple
+        Returns
+        -------
+        :
+            Blanket component manager
+        """
+        designer = BlanketDesigner(
+            params, blanket_boundary, blanket_face, r_inner_cut, cut_angle
+        )
+        ib_silhouette, ob_silhouette, panel_points = designer.execute()
+        builder = BlanketBuilder(
+            params, build_config, ib_silhouette, ob_silhouette, panel_points
+        )
+        return Blanket(builder.build(), panel_points, r_inner_cut)
 
+    @staticmethod
+    def build_tf_coils(params, build_config, separatrix, vvts_cross_section) -> TFCoil:
+        """Design and build the TF coils for the reactor.
 
-def build_pf_coils(
-    params,
-    build_config,
-    equilibrium_manager,
-    tf_coil_boundary,
-    pf_coil_keep_out_zones=(),
-) -> PFCoil:
-    """
-    Design and build the PF coils for the reactor.
+        Returns
+        -------
+        :
+            TF coil component manager
+        """
+        centreline, wp_cross_section, peak_ripple = run_designer(
+            TFCoilDesigner,
+            params,
+            build_config,
+            separatrix=separatrix,
+            keep_out_zone=vvts_cross_section,
+        )
 
-    Returns
-    -------
-    :
-        PF coil component manager
-    """
-    pf_coil_keep_out_zones_new = []
-    # This is a very crude way of forcing PF coil centrepoints away from the KOZs
-    # to stop clashes between ports and PF coil corners
-    offset_value = 0.2 * np.sqrt(
-        params.global_params.I_p.value / params.global_params.PF_jmax.value
-    )
-    for koz in pf_coil_keep_out_zones:
-        new_wire = offset_wire(koz.boundary[0], abs(offset_value), open_wire=False)
-        new_face = BluemiraFace(new_wire)
-        pf_coil_keep_out_zones_new.append(new_face)
+        builder = TFCoilBuilder(
+            params, build_config, centreline.create_shape(), wp_cross_section
+        )
+        return TFCoil(
+            builder.build(), builder._make_field_solver(), centreline
+        ), peak_ripple
 
-    pf_designer = PFCoilsDesigner(
+    @staticmethod
+    def build_pf_coils(
         params,
         build_config,
         equilibrium_manager,
         tf_coil_boundary,
-        pf_coil_keep_out_zones_new,
-    )
+        pf_coil_keep_out_zones=(),
+    ) -> PFCoil:
+        """
+        Design and build the PF coils for the reactor.
 
-    coilset = pf_designer.execute()
-    component = build_pf_coils_component(params, build_config, coilset)
-    return PFCoil(component, coilset)
+        Returns
+        -------
+        :
+            PF coil component manager
+        """
+        pf_coil_keep_out_zones_new = []
+        # This is a very crude way of forcing PF coil centrepoints away from the KOZs
+        # to stop clashes between ports and PF coil corners
+        offset_value = 0.2 * np.sqrt(
+            params.global_params.I_p.value / params.global_params.PF_jmax.value
+        )
+        for koz in pf_coil_keep_out_zones:
+            new_wire = offset_wire(koz.boundary[0], abs(offset_value), open_wire=False)
+            new_face = BluemiraFace(new_wire)
+            pf_coil_keep_out_zones_new.append(new_face)
 
+        pf_designer = PFCoilsDesigner(
+            params,
+            build_config,
+            equilibrium_manager,
+            tf_coil_boundary,
+            pf_coil_keep_out_zones_new,
+        )
 
-def build_coil_structures(
-    params, build_config, tf_coil_xz_face, pf_coil_xz_wires, pf_coil_keep_out_zones
-) -> CoilStructures:
-    """
-    Design and build the coil structures for the reactor.
+        coilset = pf_designer.execute()
+        component = build_pf_coils_component(params, build_config, coilset)
+        return PFCoil(component, coilset)
 
-    Returns
-    -------
-    :
-        Coil structures
-    """
-    component = build_coil_structures_component(
-        params, build_config, tf_coil_xz_face, pf_coil_xz_wires, pf_coil_keep_out_zones
-    )
-    return CoilStructures(component)
+    @staticmethod
+    def build_coil_structures(
+        params,
+        build_config,
+        tf_coil_xz_face,
+        pf_coil_xz_wires,
+        pf_coil_keep_out_zones,
+    ) -> CoilStructures:
+        """
+        Design and build the coil structures for the reactor.
 
+        Returns
+        -------
+        :
+            Coil structures
+        """
+        component = build_coil_structures_component(
+            params,
+            build_config,
+            tf_coil_xz_face,
+            pf_coil_xz_wires,
+            pf_coil_keep_out_zones,
+        )
+        return CoilStructures(component)
 
-def build_upper_port(
-    params,
-    build_config,
-    upper_port_koz: BluemiraFace,
-    pf_coils,
-    cryostat_ts_xz_boundary: BluemiraFace,
-) -> tuple[Component, ...]:
-    """
-    Build the upper port for the reactor.
+    @staticmethod
+    def build_upper_port(
+        params,
+        build_config,
+        upper_port_koz: BluemiraFace,
+        pf_coils,
+        cryostat_ts_xz_boundary: BluemiraFace,
+    ) -> tuple[Component, ...]:
+        """
+        Build the upper port for the reactor.
 
-    Returns
-    -------
-    :
-        Upper port components
-    """
-    ts_builder = TSUpperPortDuctBuilder(
-        params, build_config, upper_port_koz, cryostat_ts_xz_boundary
-    )
-    ts_upper_port = ts_builder.build()
-    vv_builder = VVUpperPortDuctBuilder(
-        params, build_config, upper_port_koz, cryostat_ts_xz_boundary
-    )
-    vv_upper_port = vv_builder.build()
-    return ts_upper_port, vv_upper_port
+        Returns
+        -------
+        :
+            Upper port components
+        """
+        _ = pf_coils  # explicitly unused
+        ts_builder = TSUpperPortDuctBuilder(
+            params, build_config, upper_port_koz, cryostat_ts_xz_boundary
+        )
+        ts_upper_port = ts_builder.build()
+        vv_builder = VVUpperPortDuctBuilder(
+            params, build_config, upper_port_koz, cryostat_ts_xz_boundary
+        )
+        vv_upper_port = vv_builder.build()
+        return ts_upper_port, vv_upper_port
 
+    @staticmethod
+    def build_equatorial_port(
+        params, build_config, cryostat_ts_xz_boundary
+    ) -> tuple[Component, ...]:
+        """
+        Build the equatorial port for the reactor.
 
-def build_equatorial_port(
-    params, build_config, cryostat_ts_xz_boundary
-) -> tuple[Component, ...]:
-    """
-    Build the equatorial port for the reactor.
+        Returns
+        -------
+        :
+            Equatorial port components
+        """
+        builder = VVEquatorialPortDuctBuilder(
+            params, build_config, cryostat_ts_xz_boundary
+        )
+        vv_eq_port = builder.build()
+        builder = TSEquatorialPortDuctBuilder(
+            params, build_config, cryostat_ts_xz_boundary
+        )
+        ts_eq_port = builder.build()
+        return ts_eq_port, vv_eq_port
 
-    Returns
-    -------
-    :
-        Equatorial port components
-    """
-    builder = VVEquatorialPortDuctBuilder(params, build_config, cryostat_ts_xz_boundary)
-    vv_eq_port = builder.build()
-    builder = TSEquatorialPortDuctBuilder(params, build_config, cryostat_ts_xz_boundary)
-    ts_eq_port = builder.build()
-    return ts_eq_port, vv_eq_port
-
-
-def build_lower_port(
-    params,
-    build_config,
-    lp_duct_angled_nowall_extrude_boundary,
-    lp_duct_straight_nowall_extrude_boundary,
-    cryostat_xz_boundary,
-) -> tuple[Component, ...]:
-    """Builder for the Lower Port and Duct
-
-    Returns
-    -------
-    :
-        Lower port components
-    """
-    offset = params.global_params.tk_cr_vv.value + params.global_params.g_cr_ts.value
-    x_straight_end = cryostat_xz_boundary.bounding_box.x_max - offset
-    builder = TSLowerPortDuctBuilder(
+    @staticmethod
+    def build_lower_port(
         params,
         build_config,
         lp_duct_angled_nowall_extrude_boundary,
         lp_duct_straight_nowall_extrude_boundary,
-        x_straight_end,
-    )
-    ts_lower_port = builder.build()
+        cryostat_xz_boundary,
+    ) -> tuple[Component, ...]:
+        """Builder for the Lower Port and Duct
 
-    builder = VVLowerPortDuctBuilder(
-        params,
-        build_config,
-        lp_duct_angled_nowall_extrude_boundary,
-        lp_duct_straight_nowall_extrude_boundary,
-        x_straight_end,
-    )
-    vv_lower_port = builder.build()
-    return ts_lower_port, vv_lower_port
+        Returns
+        -------
+        :
+            Lower port components
+        """
+        offset = params.global_params.tk_cr_vv.value + params.global_params.g_cr_ts.value
+        x_straight_end = cryostat_xz_boundary.bounding_box.x_max - offset
+        builder = TSLowerPortDuctBuilder(
+            params,
+            build_config,
+            lp_duct_angled_nowall_extrude_boundary,
+            lp_duct_straight_nowall_extrude_boundary,
+            x_straight_end,
+        )
+        ts_lower_port = builder.build()
 
+        builder = VVLowerPortDuctBuilder(
+            params,
+            build_config,
+            lp_duct_angled_nowall_extrude_boundary,
+            lp_duct_straight_nowall_extrude_boundary,
+            x_straight_end,
+        )
+        vv_lower_port = builder.build()
+        return ts_lower_port, vv_lower_port
 
-def build_cryostat(params, build_config, cryostat_thermal_koz) -> Cryostat:
-    """
-    Design and build the Cryostat for the reactor.
+    @staticmethod
+    def build_cryostat(params, build_config, cryostat_thermal_koz) -> Cryostat:
+        """
+        Design and build the Cryostat for the reactor.
 
-    Returns
-    -------
-    :
-        Cryostat component manager
-    """
-    cryod = CryostatDesigner(params, cryostat_thermal_koz)
-    return Cryostat(CryostatBuilder(params, build_config, *cryod.execute()).build())
+        Returns
+        -------
+        :
+            Cryostat component manager
+        """
+        cryod = CryostatDesigner(params, cryostat_thermal_koz)
+        return Cryostat(CryostatBuilder(params, build_config, *cryod.execute()).build())
 
+    @staticmethod
+    def build_radiation_shield(params, build_config, cryostat_koz) -> RadiationShield:
+        """
+        Design and build the Radiation shield for the reactor.
 
-def build_radiation_shield(params, build_config, cryostat_koz) -> RadiationShield:
-    """
-    Design and build the Radiation shield for the reactor.
+        Returns
+        -------
+        :
+            Radiation Shield component manager
+        """
+        return RadiationShield(
+            RadiationShieldBuilder(
+                params, build_config, BluemiraFace(cryostat_koz)
+            ).build()
+        )
 
-    Returns
-    -------
-    :
-        Radiation Shield component manager
-    """
-    return RadiationShield(
-        RadiationShieldBuilder(params, build_config, BluemiraFace(cryostat_koz)).build()
-    )
+    @staticmethod
+    def build_cryostat_plugs(
+        params, build_config, ts_ports, cryostat_xz_boundary: BluemiraFace
+    ) -> Component:
+        """
+        Build the port plugs for the cryostat.
 
+        Returns
+        -------
+        :
+            The cyrostat plugs
+        """
+        closest_faces = []
+        for port in ts_ports:
+            xyz = port.get_component("xyz")
+            for child in xyz.children:
+                if "voidspace" not in child.name:
+                    port_xyz = child.shape.deepcopy()
+                    port_xyz.rotate(degree=-180 / params.global_params.n_TF.value)
+            faces = port_xyz.faces
+            distances = [
+                distance_to(f.center_of_mass, cryostat_xz_boundary)[0] for f in faces
+            ]
+            closest_face = faces[np.argmin(distances)]
+            closest_faces.append(closest_face)
 
-def build_cryostat_plugs(
-    params, build_config, ts_ports, cryostat_xz_boundary: BluemiraFace
-) -> Component:
-    """
-    Build the port plugs for the cryostat.
+        outer_wires = [cf.boundary[0].deepcopy() for cf in closest_faces]
 
-    Returns
-    -------
-    :
-        The cyrostat plugs
-    """
-    closest_faces = []
-    for port in ts_ports:
-        xyz = port.get_component("xyz")
+        builder = CryostatPortPlugBuilder(
+            params, build_config, outer_wires, cryostat_xz_boundary
+        )
+        return builder.build()
+
+    @staticmethod
+    def build_radiation_plugs(
+        params, build_config, cr_ports, radiation_xz_boundary
+    ) -> Component:
+        """
+        Build the port plugs for the radiation shield.
+
+        Returns
+        -------
+        :
+            The radiation plugs
+        """
+        closest_faces = []
+        xyz = cr_ports.get_component("xyz")
         for child in xyz.children:
             if "voidspace" not in child.name:
                 port_xyz = child.shape.deepcopy()
                 port_xyz.rotate(degree=-180 / params.global_params.n_TF.value)
-        faces = port_xyz.faces
-        distances = [
-            distance_to(f.center_of_mass, cryostat_xz_boundary)[0] for f in faces
-        ]
-        closest_face = faces[np.argmin(distances)]
-        closest_faces.append(closest_face)
+                faces = port_xyz.faces
+                distances = [
+                    distance_to(f.center_of_mass, radiation_xz_boundary)[0]
+                    for f in faces
+                ]
+                closest_face = faces[np.argmin(distances)]
+                closest_faces.append(closest_face)
+        outer_wires = [cf.boundary[0].deepcopy() for cf in closest_faces]
 
-    outer_wires = [cf.boundary[0].deepcopy() for cf in closest_faces]
+        builder = RadiationPortPlugBuilder(
+            params, build_config, outer_wires, radiation_xz_boundary
+        )
+        return builder.build()
 
-    builder = CryostatPortPlugBuilder(
-        params, build_config, outer_wires, cryostat_xz_boundary
-    )
-    return builder.build()
+    @staticmethod
+    def add_useful_parameters(reactor, reactor_config, reference_eq):
+        """Add useful parameters back to the global config"""
+        reactor_config.global_params.tf_wp_volume.set_value(
+            reactor.tf_coils.wp_volume, "BLUEMIRA"
+        )
+        reactor_config.global_params.pf_wp_volume.set_value(
+            reactor.pf_coils.wp_volume, "BLUEMIRA"
+        )
 
+        lcfs = ClosedFluxSurface(reference_eq.get_LCFS())
+        reactor_config.global_params.V_p.set_value(lcfs.volume, "BLUEMIRA")
 
-def build_radiation_plugs(
-    params, build_config, cr_ports, radiation_xz_boundary
-) -> Component:
-    """
-    Build the port plugs for the radiation shield.
-
-    Returns
-    -------
-    :
-        The radiation plugs
-    """
-    closest_faces = []
-    xyz = cr_ports.get_component("xyz")
-    for child in xyz.children:
-        if "voidspace" not in child.name:
-            port_xyz = child.shape.deepcopy()
-            port_xyz.rotate(degree=-180 / params.global_params.n_TF.value)
-            faces = port_xyz.faces
-            distances = [
-                distance_to(f.center_of_mass, radiation_xz_boundary)[0] for f in faces
+        eqs = [
+            reactor.equilibria.get_state(s).eq
+            for s in [
+                reactor.equilibria.SOF,
+                reactor.equilibria.EOF,
+                reactor.equilibria.BREAKDOWN,
             ]
-            closest_face = faces[np.argmin(distances)]
-            closest_faces.append(closest_face)
-    outer_wires = [cf.boundary[0].deepcopy() for cf in closest_faces]
-
-    builder = RadiationPortPlugBuilder(
-        params, build_config, outer_wires, radiation_xz_boundary
-    )
-    return builder.build()
-
-
-def add_useful_parameters(reactor, reactor_config, reference_eq):
-    """Add useful parameters back to the global config"""
-    reactor_config.global_params.tf_wp_volume.set_value(
-        reactor.tf_coils.wp_volume, "BLUEMIRA"
-    )
-    reactor_config.global_params.pf_wp_volume.set_value(
-        reactor.pf_coils.wp_volume, "BLUEMIRA"
-    )
-
-    lcfs = ClosedFluxSurface(reference_eq.get_LCFS())
-    reactor_config.global_params.V_p.set_value(lcfs.volume, "BLUEMIRA")
-
-    eqs = [
-        reactor.equilibria.get_state(s).eq
-        for s in [
-            reactor.equilibria.SOF,
-            reactor.equilibria.EOF,
-            reactor.equilibria.BREAKDOWN,
         ]
-    ]
 
-    tf_ccl = reactor.tf_coils.centreline.create_shape()
-    wp_in_wire = offset_wire(
-        tf_ccl, -0.5 * reactor_config.global_params.tf_wp_width.value, open_wire=False
-    )
-    x_min = wp_in_wire.bounding_box.x_min
-    points = wp_in_wire.discretise(200)
-    mask = np.nonzero(points.x < x_min + 0.5)[0]
-    x, z = points.x[mask], points.z[mask]
-    Bx_tf, By, Bz_tf = reactor.tf_coils._field_solver.field(x, np.zeros_like(x), z)
-    peak_fields = []
-    for eq in eqs:
-        Bx = eq.Bx(x, z) + Bx_tf
-        Bz = eq.Bz(x, z) + Bz_tf
-        B_tot = np.sqrt(Bx**2 + By**2 + Bz**2)
-        peak_fields.append(np.max(B_tot))
-    peak_field_hifi = np.max(peak_fields)
-    reactor_config.global_params.TF_peak_field.set_value(peak_field_hifi, "BLUEMIRA")
-    peak_ripple_hifi = np.max(
-        reactor.tf_coils._field_solver.ripple(
-            lcfs.coords.x, np.zeros_like(lcfs.coords.x), lcfs.coords.z
+        tf_ccl = reactor.tf_coils.centreline.create_shape()
+        wp_in_wire = offset_wire(
+            tf_ccl,
+            -0.5 * reactor_config.global_params.tf_wp_width.value,
+            open_wire=False,
         )
-    )
-    reactor_config.global_params.TF_peak_ripple.set_value(peak_ripple_hifi, "BLUEMIRA")
-
-
-def save_reactor(reactor, reactor_config, folder_name):
-    """
-    Save a reactor to a folder data-structure
-    """
-    bluemira_print(f"Saving reactor to {folder_name}")
-    config_folder = get_bluemira_path("config", subfolder="eudemo")
-    root = make_bluemira_path(folder_name, subfolder="eudemo")
-    process_folder = make_bluemira_path(f"{folder_name}/PROCESS", subfolder="eudemo")
-    cad_folder = make_bluemira_path(f"{folder_name}/CAD", subfolder="eudemo")
-    equilibria_folder = make_bluemira_path(
-        f"{folder_name}/equilibria", subfolder="eudemo"
-    )
-    tf_folder = make_bluemira_path(f"{folder_name}/TF_coil", subfolder="eudemo")
-    # Copy across PROCESS outputs
-    for fn in ["OUT.DAT", "MFILE.DAT"]:
-        shutil.copyfile(Path(config_folder, fn), Path(process_folder, fn))
-    # Save equilibria
-    try:
-        sof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.SOF).eq
-        eof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.EOF).eq
-        sof.to_eqdsk(
-            filename="BLUEMIRA_SOF.eqdsk",
-            filetype="eqdsk",
-            directory=equilibria_folder,
-            qpsi_calcmode=1,
+        x_min = wp_in_wire.bounding_box.x_min
+        points = wp_in_wire.discretise(200)
+        mask = np.nonzero(points.x < x_min + 0.5)[0]
+        x, z = points.x[mask], points.z[mask]
+        Bx_tf, By, Bz_tf = reactor.tf_coils._field_solver.field(x, np.zeros_like(x), z)
+        peak_fields = []
+        for eq in eqs:
+            Bx = eq.Bx(x, z) + Bx_tf
+            Bz = eq.Bz(x, z) + Bz_tf
+            B_tot = np.sqrt(Bx**2 + By**2 + Bz**2)
+            peak_fields.append(np.max(B_tot))
+        peak_field_hifi = np.max(peak_fields)
+        reactor_config.global_params.TF_peak_field.set_value(peak_field_hifi, "BLUEMIRA")
+        peak_ripple_hifi = np.max(
+            reactor.tf_coils._field_solver.ripple(
+                lcfs.coords.x, np.zeros_like(lcfs.coords.x), lcfs.coords.z
+            )
         )
-        eof.to_eqdsk(
-            filename="BLUEMIRA_not_EOF.eqdsk",
-            filetype="eqdsk",
-            directory=equilibria_folder,
-            qpsi_calcmode=1,
+        reactor_config.global_params.TF_peak_ripple.set_value(
+            peak_ripple_hifi, "BLUEMIRA"
         )
-    except AttributeError:
-        pass
 
-    # Save TF coils
-    filename = f"{tf_folder}/BLUEMIRA_TF_3D_CAD.STP"
-    reactor.save_cad(
-        n_sectors=1,
-        with_components=[reactor.tf_coils, reactor.coil_structures],
-        filename=filename,
-    )
-    filename = f"{tf_folder}/BLUEMIRA_TF_centreline.STP"
-    save_cad(
-        reactor.tf_coils.centreline.create_shape(), filename=filename, cad_format="stp"
-    )
-    # Save CAD
-    filename = f"{cad_folder}/BLUEMIRA_full_3D_CAD.STP"
-    reactor.save_cad(n_sectors=2, filename=filename)
-    # Save figures
-    reactor.plot("xz", show=False)
-    f = plt.gcf()
-    filename = f"{root}/BLUEMIRA_reactor_xz.pdf"
-    f.savefig(filename, dpi=600, format="pdf")
-    reactor.plot("xy", show=False)
-    f = plt.gcf()
-    filename = f"{root}/BLUEMIRA_reactor_xy.pdf"
-    f.savefig(filename, dpi=600, format="pdf")
+    @staticmethod
+    def save_reactor(reactor, reactor_config, folder_name):
+        """
+        Save a reactor to a folder data-structure
+        """
+        bluemira_print(f"Saving reactor to {folder_name}")
+        config_folder = get_bluemira_path("config", subfolder="eudemo")
+        root = make_bluemira_path(folder_name, subfolder="eudemo")
+        process_folder = make_bluemira_path(f"{folder_name}/PROCESS", subfolder="eudemo")
+        cad_folder = make_bluemira_path(f"{folder_name}/CAD", subfolder="eudemo")
+        equilibria_folder = make_bluemira_path(
+            f"{folder_name}/equilibria", subfolder="eudemo"
+        )
+        tf_folder = make_bluemira_path(f"{folder_name}/TF_coil", subfolder="eudemo")
+        # Copy across PROCESS outputs
+        for fn in ["OUT.DAT", "MFILE.DAT"]:
+            shutil.copyfile(Path(config_folder, fn), Path(process_folder, fn))
+        # Save equilibria
+        try:
+            sof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.SOF).eq
+            eof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.EOF).eq
+            sof.to_eqdsk(
+                filename="BLUEMIRA_SOF.eqdsk",
+                filetype="eqdsk",
+                directory=equilibria_folder,
+                qpsi_calcmode=1,
+            )
+            eof.to_eqdsk(
+                filename="BLUEMIRA_not_EOF.eqdsk",
+                filetype="eqdsk",
+                directory=equilibria_folder,
+                qpsi_calcmode=1,
+            )
+        except AttributeError:
+            pass
 
-    filename = f"{root}/BLUEMIRA_OUT.json"
-    json_writer(reactor_config.global_params.to_dict(use_last=True), filename, indent=2)
+        # Save TF coils
+        filename = f"{tf_folder}/BLUEMIRA_TF_3D_CAD.STP"
+        reactor.save_cad(
+            n_sectors=1,
+            with_components=[reactor.tf_coils, reactor.coil_structures],
+            filename=filename,
+        )
+        filename = f"{tf_folder}/BLUEMIRA_TF_centreline.STP"
+        save_cad(
+            reactor.tf_coils.centreline.create_shape(),
+            filename=filename,
+            cad_format="stp",
+        )
+        # Save CAD
+        filename = f"{cad_folder}/BLUEMIRA_full_3D_CAD.STP"
+        reactor.save_cad(n_sectors=2, filename=filename)
+        # Save figures
+        reactor.plot("xz", show=False)
+        f = plt.gcf()
+        filename = f"{root}/BLUEMIRA_reactor_xz.pdf"
+        f.savefig(filename, dpi=600, format="pdf")
+        reactor.plot("xy", show=False)
+        f = plt.gcf()
+        filename = f"{root}/BLUEMIRA_reactor_xy.pdf"
+        f.savefig(filename, dpi=600, format="pdf")
 
-    # Save neutronics
-    n_root = Path(root, "neutronics")
+        filename = f"{root}/BLUEMIRA_OUT.json"
+        json_writer(
+            reactor_config.global_params.to_dict(use_last=True), filename, indent=2
+        )
 
-    shutil.copytree(Path(config_folder, "neutronics"), n_root, dirs_exist_ok=True)
+        # Save neutronics
+        n_root = Path(root, "neutronics")
 
-    n_root.mkdir(parents=True, exist_ok=True)
-    # CSG
-    csg_root = Path(n_root, "csg")
-    csg_root.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(Path(config_folder, "neutronics"), n_root, dirs_exist_ok=True)
 
-    csg_out_dict = {}
-    if reactor.neutronics.csg is not None:  # TODO fix better
-        for k, v in reactor.neutronics.csg.results.__dict__.items():
-            if isinstance(v, float | dict):
-                csg_out_dict[k] = v
-            elif k == "statepoint_file":
-                csg_out_dict[k] = Path(csg_root, "run", v.name).as_posix()
+        n_root.mkdir(parents=True, exist_ok=True)
+        # CSG
+        csg_root = Path(n_root, "csg")
+        csg_root.mkdir(parents=True, exist_ok=True)
 
-        json_writer(csg_out_dict, Path(csg_root, "openmc_result.json"), indent=2)
+        csg_out_dict = {}
+        if reactor.neutronics.csg is not None:  # TODO fix better
+            for k, v in reactor.neutronics.csg.results.__dict__.items():
+                if isinstance(v, float | dict):
+                    csg_out_dict[k] = v
+                elif k == "statepoint_file":
+                    csg_out_dict[k] = Path(csg_root, "run", v.name).as_posix()
 
-    if reactor.neutronics.dagmc is not None:  # TODO fix better
-        # DAGMC
-        dag_root = Path(n_root, "dagmc")
-        dag_root.mkdir(parents=True, exist_ok=True)
+            json_writer(csg_out_dict, Path(csg_root, "openmc_result.json"), indent=2)
 
-        openmc_res = copy(reactor.neutronics.dagmc.results.__dict__)
-        openmc_res.pop("statepoint")
-        openmc_res["statepoint_file"] = Path(
-            dag_root, "run", openmc_res["statepoint_file"].name
-        ).as_posix()
+        if reactor.neutronics.dagmc is not None:  # TODO fix better
+            # DAGMC
+            dag_root = Path(n_root, "dagmc")
+            dag_root.mkdir(parents=True, exist_ok=True)
 
-        json_writer(openmc_res, Path(dag_root, "openmc_result.json"), indent=2)
+            openmc_res = copy(reactor.neutronics.dagmc.results.__dict__)
+            openmc_res.pop("statepoint")
+            openmc_res["statepoint_file"] = Path(
+                dag_root, "run", openmc_res["statepoint_file"].name
+            ).as_posix()
+
+            json_writer(openmc_res, Path(dag_root, "openmc_result.json"), indent=2)
 
 
 if __name__ == "__main__":
     set_log_level("INFO")
-    import time
-
     run_time_track = {
         "Total": 0.0,
         "PROCESS": 0.0,
@@ -706,7 +736,7 @@ if __name__ == "__main__":
 
         reactor.equilibria = EquilibriumManager()
 
-        reference_eq = build_reference_equilibrium(
+        reference_eq = reactor.build_reference_equilibrium(
             reactor_config.params_for("Free boundary equilibrium"),
             reactor_config.config_for("Free boundary equilibrium"),
             reactor.equilibria,
@@ -714,7 +744,7 @@ if __name__ == "__main__":
             profiles,
         )
 
-        reactor.plasma = build_plasma(
+        reactor.plasma = reactor.build_plasma(
             reactor_config.params_for("Plasma"),
             reactor_config.config_for("Plasma"),
             reference_eq,
@@ -726,13 +756,13 @@ if __name__ == "__main__":
             equilibrium=reference_eq,
         )
 
-        reactor.vacuum_vessel = build_vacuum_vessel(
+        reactor.vacuum_vessel = reactor.build_vacuum_vessel(
             reactor_config.params_for("Vacuum vessel"),
             reactor_config.config_for("Vacuum vessel"),
             ivc_shapes.outer_boundary,
         )
 
-        reactor.divertor = build_divertor(
+        reactor.divertor = reactor.build_divertor(
             reactor_config.params_for("Divertor"),
             reactor_config.config_for("Divertor"),
             ivc_shapes.divertor_face,
@@ -745,7 +775,7 @@ if __name__ == "__main__":
         )
         upper_port_koz_xz, r_inner_cut, cut_angle = upper_port_designer.execute()
 
-        reactor.blanket = build_blanket(
+        reactor.blanket = reactor.build_blanket(
             reactor_config.params_for("Blanket"),
             reactor_config.config_for("Blanket"),
             ivc_shapes.inner_boundary,
@@ -778,13 +808,13 @@ if __name__ == "__main__":
 
         reactor.neutronics = NeutronicsManager(zero_d_params, neutronics_csg)
 
-        vv_thermal_shield = build_vacuum_vessel_thermal_shield(
+        vv_thermal_shield = reactor.build_vacuum_vessel_thermal_shield(
             reactor_config.params_for("Thermal shield"),
             reactor_config.config_for("Thermal shield", "VVTS"),
             reactor.vacuum_vessel.xz_boundary,
         )
 
-        reactor.tf_coils, peak_opt_ripple = build_tf_coils(
+        reactor.tf_coils, peak_opt_ripple = reactor.build_tf_coils(
             reactor_config.params_for("TF coils"),
             reactor_config.config_for("TF coils"),
             reactor.plasma.lcfs(),
@@ -815,7 +845,7 @@ if __name__ == "__main__":
             reactor.tf_coils.xz_outer_boundary,
         ).execute()
 
-        reactor.pf_coils = build_pf_coils(
+        reactor.pf_coils = reactor.build_pf_coils(
             reactor_config.params_for("PF coils"),
             reactor_config.config_for("PF coils"),
             reactor.equilibria,
@@ -836,18 +866,18 @@ if __name__ == "__main__":
             [upper_port_koz_xz, eq_port_koz_xz, lower_port_koz_xz],
         )
 
-        cryostat_thermal_shield = build_cryots(
+        cryostat_thermal_shield = reactor.build_cryots(
             reactor_config.params_for("Thermal shield"),
             reactor_config.config_for("Thermal shield", "Cryostat"),
             reactor.pf_coils.xz_boundary,
             reactor.tf_coils.xz_outer_boundary,
         )
 
-        reactor.thermal_shield = assemble_thermal_shield(
+        reactor.thermal_shield = reactor.assemble_thermal_shield(
             vv_thermal_shield, cryostat_thermal_shield
         )
 
-        reactor.coil_structures = build_coil_structures(
+        reactor.coil_structures = reactor.build_coil_structures(
             reactor_config.params_for("Coil structures"),
             reactor_config.config_for("Coil structures"),
             tf_coil_xz_face=reactor.tf_coils.xz_face,
@@ -859,13 +889,13 @@ if __name__ == "__main__":
             ],
         )
 
-        reactor.cryostat = build_cryostat(
+        reactor.cryostat = reactor.build_cryostat(
             reactor_config.params_for("Cryostat"),
             reactor_config.config_for("Cryostat"),
             cryostat_thermal_shield.xz_boundary,
         )
 
-        reactor.radiation_shield = build_radiation_shield(
+        reactor.radiation_shield = reactor.build_radiation_shield(
             reactor_config.params_for("RadiationShield"),
             reactor_config.config_for("RadiationShield"),
             reactor.cryostat.xz_boundary,
@@ -873,20 +903,20 @@ if __name__ == "__main__":
 
         # Incorporate ports
 
-        ts_upper_port, vv_upper_port = build_upper_port(
+        ts_upper_port, vv_upper_port = reactor.build_upper_port(
             reactor_config.params_for("Upper Port"),
             reactor_config.config_for("Upper Port"),
             upper_port_koz_xz,
             reactor.pf_coils,
             cryostat_thermal_shield.xz_boundary,
         )
-        ts_eq_port, vv_eq_port = build_equatorial_port(
+        ts_eq_port, vv_eq_port = reactor.build_equatorial_port(
             reactor_config.params_for("Equatorial Port"),
             reactor_config.config_for("Equatorial Port"),
             cryostat_thermal_shield.xz_boundary,
         )
 
-        ts_lower_port, vv_lower_port = build_lower_port(
+        ts_lower_port, vv_lower_port = reactor.build_lower_port(
             reactor_config.params_for("Lower Port"),
             reactor_config.config_for("Lower Port"),
             lp_duct_angled_nowall_extrude_boundary,
@@ -904,14 +934,14 @@ if __name__ == "__main__":
             n_TF=reactor_config.global_params.n_TF.value,
         )
 
-        cr_plugs = build_cryostat_plugs(
+        cr_plugs = reactor.build_cryostat_plugs(
             reactor_config.params_for("Cryostat"),
             reactor_config.config_for("Cryostat"),
             [ts_upper_port, ts_eq_port, ts_lower_port],
             reactor.cryostat.xz_boundary,
         )
 
-        rs_plugs = build_radiation_plugs(
+        rs_plugs = reactor.build_radiation_plugs(
             reactor_config.params_for("RadiationShield"),
             reactor_config.config_for("RadiationShield"),
             cr_plugs,
@@ -939,7 +969,7 @@ if __name__ == "__main__":
             sspc_result["P_el_net"], "BLUEMIRA"
         )
 
-        add_useful_parameters(reactor, reactor_config, reference_eq)
+        reactor.add_useful_parameters(reactor, reactor_config, reference_eq)
 
         end = time.time()
         run_time_track["Total"] = end - start
@@ -952,7 +982,7 @@ if __name__ == "__main__":
         filename = f"{folder_name}/run_time.json"
         with open(filename, "w") as f:
             json.dump(run_time_track, f, indent=2)
-        save_reactor(reactor, reactor_config, folder_name=folder_name)
+        reactor.save_reactor(reactor, reactor_config, folder_name=folder_name)
         plt.close("all")
 
     except Exception as e:

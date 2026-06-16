@@ -58,7 +58,7 @@ def design_ivc(
     wall_boundary = run_designer(
         WallSilhouetteDesigner,
         params,
-        build_config["Wall silhouette"],
+        build_config["wall_silhouette"],
         equilibrium=equilibrium,
     ).create_shape(label="wall")
 
