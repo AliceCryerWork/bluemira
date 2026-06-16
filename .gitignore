@@ -195,6 +195,7 @@ cross_section_data
 plasmod_*.dat
 tmp_env.yml
 bluemira/_version.py
+results_**
 
 # openmc outputs
 *.svg
