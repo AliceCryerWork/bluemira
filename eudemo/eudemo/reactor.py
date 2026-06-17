@@ -736,7 +736,7 @@ if __name__ == "__main__":
 
         reactor.equilibria = EquilibriumManager()
 
-        reference_eq = reactor.build_reference_equilibrium(
+        reference_eq = EUDEMO.build_reference_equilibrium(
             reactor_config.params_for("Free boundary equilibrium"),
             reactor_config.config_for("Free boundary equilibrium"),
             reactor.equilibria,
@@ -744,7 +744,7 @@ if __name__ == "__main__":
             profiles,
         )
 
-        reactor.plasma = reactor.build_plasma(
+        reactor.plasma = EUDEMO.build_plasma(
             reactor_config.params_for("Plasma"),
             reactor_config.config_for("Plasma"),
             reference_eq,
@@ -756,13 +756,13 @@ if __name__ == "__main__":
             equilibrium=reference_eq,
         )
 
-        reactor.vacuum_vessel = reactor.build_vacuum_vessel(
+        reactor.vacuum_vessel = EUDEMO.build_vacuum_vessel(
             reactor_config.params_for("Vacuum vessel"),
             reactor_config.config_for("Vacuum vessel"),
             ivc_shapes.outer_boundary,
         )
 
-        reactor.divertor = reactor.build_divertor(
+        reactor.divertor = EUDEMO.build_divertor(
             reactor_config.params_for("Divertor"),
             reactor_config.config_for("Divertor"),
             ivc_shapes.divertor_face,
@@ -775,7 +775,7 @@ if __name__ == "__main__":
         )
         upper_port_koz_xz, r_inner_cut, cut_angle = upper_port_designer.execute()
 
-        reactor.blanket = reactor.build_blanket(
+        reactor.blanket = EUDEMO.build_blanket(
             reactor_config.params_for("Blanket"),
             reactor_config.config_for("Blanket"),
             ivc_shapes.inner_boundary,
@@ -808,13 +808,13 @@ if __name__ == "__main__":
 
         reactor.neutronics = NeutronicsManager(zero_d_params, neutronics_csg)
 
-        vv_thermal_shield = reactor.build_vacuum_vessel_thermal_shield(
+        vv_thermal_shield = EUDEMO.build_vacuum_vessel_thermal_shield(
             reactor_config.params_for("Thermal shield"),
             reactor_config.config_for("Thermal shield", "VVTS"),
             reactor.vacuum_vessel.xz_boundary,
         )
 
-        reactor.tf_coils, peak_opt_ripple = reactor.build_tf_coils(
+        reactor.tf_coils, peak_opt_ripple = EUDEMO.build_tf_coils(
             reactor_config.params_for("TF coils"),
             reactor_config.config_for("TF coils"),
             reactor.plasma.lcfs(),
@@ -845,7 +845,7 @@ if __name__ == "__main__":
             reactor.tf_coils.xz_outer_boundary,
         ).execute()
 
-        reactor.pf_coils = reactor.build_pf_coils(
+        reactor.pf_coils = EUDEMO.build_pf_coils(
             reactor_config.params_for("PF coils"),
             reactor_config.config_for("PF coils"),
             reactor.equilibria,
@@ -866,7 +866,7 @@ if __name__ == "__main__":
             [upper_port_koz_xz, eq_port_koz_xz, lower_port_koz_xz],
         )
 
-        cryostat_thermal_shield = reactor.build_cryots(
+        cryostat_thermal_shield = EUDEMO.build_cryots(
             reactor_config.params_for("Thermal shield"),
             reactor_config.config_for("Thermal shield", "Cryostat"),
             reactor.pf_coils.xz_boundary,
@@ -877,7 +877,7 @@ if __name__ == "__main__":
             vv_thermal_shield, cryostat_thermal_shield
         )
 
-        reactor.coil_structures = reactor.build_coil_structures(
+        reactor.coil_structures = EUDEMO.build_coil_structures(
             reactor_config.params_for("Coil structures"),
             reactor_config.config_for("Coil structures"),
             tf_coil_xz_face=reactor.tf_coils.xz_face,
@@ -889,13 +889,13 @@ if __name__ == "__main__":
             ],
         )
 
-        reactor.cryostat = reactor.build_cryostat(
+        reactor.cryostat = EUDEMO.build_cryostat(
             reactor_config.params_for("Cryostat"),
             reactor_config.config_for("Cryostat"),
             cryostat_thermal_shield.xz_boundary,
         )
 
-        reactor.radiation_shield = reactor.build_radiation_shield(
+        reactor.radiation_shield = EUDEMO.build_radiation_shield(
             reactor_config.params_for("RadiationShield"),
             reactor_config.config_for("RadiationShield"),
             reactor.cryostat.xz_boundary,
@@ -903,20 +903,20 @@ if __name__ == "__main__":
 
         # Incorporate ports
 
-        ts_upper_port, vv_upper_port = reactor.build_upper_port(
+        ts_upper_port, vv_upper_port = EUDEMO.build_upper_port(
             reactor_config.params_for("Upper Port"),
             reactor_config.config_for("Upper Port"),
             upper_port_koz_xz,
             reactor.pf_coils,
             cryostat_thermal_shield.xz_boundary,
         )
-        ts_eq_port, vv_eq_port = reactor.build_equatorial_port(
+        ts_eq_port, vv_eq_port = EUDEMO.build_equatorial_port(
             reactor_config.params_for("Equatorial Port"),
             reactor_config.config_for("Equatorial Port"),
             cryostat_thermal_shield.xz_boundary,
         )
 
-        ts_lower_port, vv_lower_port = reactor.build_lower_port(
+        ts_lower_port, vv_lower_port = EUDEMO.build_lower_port(
             reactor_config.params_for("Lower Port"),
             reactor_config.config_for("Lower Port"),
             lp_duct_angled_nowall_extrude_boundary,
@@ -934,14 +934,14 @@ if __name__ == "__main__":
             n_TF=reactor_config.global_params.n_TF.value,
         )
 
-        cr_plugs = reactor.build_cryostat_plugs(
+        cr_plugs = EUDEMO.build_cryostat_plugs(
             reactor_config.params_for("Cryostat"),
             reactor_config.config_for("Cryostat"),
             [ts_upper_port, ts_eq_port, ts_lower_port],
             reactor.cryostat.xz_boundary,
         )
 
-        rs_plugs = reactor.build_radiation_plugs(
+        rs_plugs = EUDEMO.build_radiation_plugs(
             reactor_config.params_for("RadiationShield"),
             reactor_config.config_for("RadiationShield"),
             cr_plugs,
