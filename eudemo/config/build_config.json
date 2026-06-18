@@ -1,5 +1,6 @@
 {
   "params": "$path:params.json",
+  "machine_type": "eudemo",
   "materials_path": {
     "materials": "$path_expand:./materials_data/materials.json",
     "mixtures": "$path_expand:./materials_data/mixtures.json"

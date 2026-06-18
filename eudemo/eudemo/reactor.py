@@ -598,6 +598,7 @@ class EUDEMO(Reactor):
         Save a reactor to a folder data-structure
         """
         bluemira_print(f"Saving reactor to {folder_name}")
+        eudemo_folder = get_bluemira_path("eudemo", subfolder="eudemo")
         config_folder = get_bluemira_path("config", subfolder="eudemo")
         root = make_bluemira_path(folder_name, subfolder="eudemo")
         process_folder = make_bluemira_path(f"{folder_name}/PROCESS", subfolder="eudemo")
@@ -662,7 +663,7 @@ class EUDEMO(Reactor):
         # Save neutronics
         n_root = Path(root, "neutronics")
 
-        shutil.copytree(Path(config_folder, "neutronics"), n_root, dirs_exist_ok=True)
+        shutil.copytree(Path(eudemo_folder, "neutronics"), n_root, dirs_exist_ok=True)
 
         n_root.mkdir(parents=True, exist_ok=True)
         # CSG
