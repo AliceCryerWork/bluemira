@@ -542,29 +542,28 @@ class EUDEMO(Reactor):
         )
         return builder.build()
 
-    @staticmethod
-    def add_useful_parameters(reactor, reactor_config, reference_eq):
+    def add_useful_parameters(self, reactor_config, reference_eq):
         """Add useful parameters back to the global config"""
         reactor_config.global_params.tf_wp_volume.set_value(
-            reactor.tf_coils.wp_volume, "BLUEMIRA"
+            self.tf_coils.wp_volume, "BLUEMIRA"
         )
         reactor_config.global_params.pf_wp_volume.set_value(
-            reactor.pf_coils.wp_volume, "BLUEMIRA"
+            self.pf_coils.wp_volume, "BLUEMIRA"
         )
 
         lcfs = ClosedFluxSurface(reference_eq.get_LCFS())
         reactor_config.global_params.V_p.set_value(lcfs.volume, "BLUEMIRA")
 
         eqs = [
-            reactor.equilibria.get_state(s).eq
+            self.equilibria.get_state(s).eq
             for s in [
-                reactor.equilibria.SOF,
-                reactor.equilibria.EOF,
-                reactor.equilibria.BREAKDOWN,
+                self.equilibria.SOF,
+                self.equilibria.EOF,
+                self.equilibria.BREAKDOWN,
             ]
         ]
 
-        tf_ccl = reactor.tf_coils.centreline.create_shape()
+        tf_ccl = self.tf_coils.centreline.create_shape()
         wp_in_wire = offset_wire(
             tf_ccl,
             -0.5 * reactor_config.global_params.tf_wp_width.value,
@@ -574,7 +573,7 @@ class EUDEMO(Reactor):
         points = wp_in_wire.discretise(200)
         mask = np.nonzero(points.x < x_min + 0.5)[0]
         x, z = points.x[mask], points.z[mask]
-        Bx_tf, By, Bz_tf = reactor.tf_coils._field_solver.field(x, np.zeros_like(x), z)
+        Bx_tf, By, Bz_tf = self.tf_coils._field_solver.field(x, np.zeros_like(x), z)
         peak_fields = []
         for eq in eqs:
             Bx = eq.Bx(x, z) + Bx_tf
@@ -584,7 +583,7 @@ class EUDEMO(Reactor):
         peak_field_hifi = np.max(peak_fields)
         reactor_config.global_params.TF_peak_field.set_value(peak_field_hifi, "BLUEMIRA")
         peak_ripple_hifi = np.max(
-            reactor.tf_coils._field_solver.ripple(
+            self.tf_coils._field_solver.ripple(
                 lcfs.coords.x, np.zeros_like(lcfs.coords.x), lcfs.coords.z
             )
         )
@@ -592,8 +591,7 @@ class EUDEMO(Reactor):
             peak_ripple_hifi, "BLUEMIRA"
         )
 
-    @staticmethod
-    def save_reactor(reactor, reactor_config, folder_name):
+    def save_reactor(self, reactor_config, folder_name):
         """
         Save a reactor to a folder data-structure
         """
@@ -612,8 +610,8 @@ class EUDEMO(Reactor):
             shutil.copyfile(Path(config_folder, fn), Path(process_folder, fn))
         # Save equilibria
         try:
-            sof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.SOF).eq
-            eof: Equilibrium = reactor.equilibria.get_state(reactor.equilibria.EOF).eq
+            sof: Equilibrium = self.equilibria.get_state(self.equilibria.SOF).eq
+            eof: Equilibrium = self.equilibria.get_state(self.equilibria.EOF).eq
             sof.to_eqdsk(
                 filename="BLUEMIRA_SOF.eqdsk",
                 filetype="eqdsk",
@@ -631,26 +629,26 @@ class EUDEMO(Reactor):
 
         # Save TF coils
         filename = f"{tf_folder}/BLUEMIRA_TF_3D_CAD.STP"
-        reactor.save_cad(
+        self.save_cad(
             n_sectors=1,
-            with_components=[reactor.tf_coils, reactor.coil_structures],
+            with_components=[self.tf_coils, self.coil_structures],
             filename=filename,
         )
         filename = f"{tf_folder}/BLUEMIRA_TF_centreline.STP"
         save_cad(
-            reactor.tf_coils.centreline.create_shape(),
+            self.tf_coils.centreline.create_shape(),
             filename=filename,
             cad_format="stp",
         )
         # Save CAD
         filename = f"{cad_folder}/BLUEMIRA_full_3D_CAD.STP"
-        reactor.save_cad(n_sectors=2, filename=filename)
+        self.save_cad(n_sectors=2, filename=filename)
         # Save figures
-        reactor.plot("xz", show=False)
+        self.plot("xz", show=False)
         f = plt.gcf()
         filename = f"{root}/BLUEMIRA_reactor_xz.pdf"
         f.savefig(filename, dpi=600, format="pdf")
-        reactor.plot("xy", show=False)
+        self.plot("xy", show=False)
         f = plt.gcf()
         filename = f"{root}/BLUEMIRA_reactor_xy.pdf"
         f.savefig(filename, dpi=600, format="pdf")
@@ -671,8 +669,8 @@ class EUDEMO(Reactor):
         csg_root.mkdir(parents=True, exist_ok=True)
 
         csg_out_dict = {}
-        if reactor.neutronics.csg is not None:  # TODO fix better
-            for k, v in reactor.neutronics.csg.results.__dict__.items():
+        if self.neutronics.csg is not None:  # TODO fix better
+            for k, v in self.neutronics.csg.results.__dict__.items():
                 if isinstance(v, float | dict):
                     csg_out_dict[k] = v
                 elif k == "statepoint_file":
@@ -680,12 +678,12 @@ class EUDEMO(Reactor):
 
             json_writer(csg_out_dict, Path(csg_root, "openmc_result.json"), indent=2)
 
-        if reactor.neutronics.dagmc is not None:  # TODO fix better
+        if self.neutronics.dagmc is not None:  # TODO fix better
             # DAGMC
             dag_root = Path(n_root, "dagmc")
             dag_root.mkdir(parents=True, exist_ok=True)
 
-            openmc_res = copy(reactor.neutronics.dagmc.results.__dict__)
+            openmc_res = copy(self.neutronics.dagmc.results.__dict__)
             openmc_res.pop("statepoint")
             openmc_res["statepoint_file"] = Path(
                 dag_root, "run", openmc_res["statepoint_file"].name
