@@ -642,7 +642,7 @@ class EUDEMO(Reactor):
         )
         # Save CAD
         filename = f"{cad_folder}/BLUEMIRA_full_3D_CAD.STP"
-        self.save_cad(n_sectors=2, filename=filename)
+        self.save_cad(filename=filename)
         # Save figures
         self.plot("xz", show=False)
         f = plt.gcf()
